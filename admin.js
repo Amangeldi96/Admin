@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-storage.js";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-storage.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBVhHADTsrD2e2tKXEtJ-M1EOUHv8qREuw",
@@ -61,7 +61,7 @@ window.updateFileName = () => {
     if (f) lbl.innerHTML = `Тандалды: <span style="color:#00c853">${f.name.substring(0, 15)}...</span>`;
 };
 
-// --- САЙТКА ЧЫГАРУУ ---
+// --- САЙТКА ЧЫГАРУУ (ПРОГРЕСС МЕНЕН) ---
 window.confirmUpload = async () => {
     const cat = document.getElementById('mainCategory').value;
     const artist = document.getElementById('artistName').value;
@@ -75,15 +75,32 @@ window.confirmUpload = async () => {
     const btn = document.getElementById('uploadBtn');
     const btnText = document.getElementById('upload-btn-text');
     btn.disabled = true;
-    btnText.innerText = "Күтө туруңуз...";
 
     try {
         let coverUrl = "";
+        
+        // Эгер сүрөт бар болсо, прогресс менен жүктөйбүз
         if (file && (cat === 'top_hits' || cat === 'upcoming')) {
             const imgRef = ref(storage, `covers/${Date.now()}_${file.name}`);
-            const snap = await uploadBytes(imgRef, file);
-            coverUrl = await getDownloadURL(snap.ref);
+            const uploadTask = uploadBytesResumable(imgRef, file);
+
+            // Жүктөө процессин көзөмөлдөө
+            await new Promise((resolve, reject) => {
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+                        btnText.innerText = `Жүктөлүүдө: ${progress}%`;
+                    }, 
+                    (error) => reject(error), 
+                    async () => {
+                        coverUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                        resolve();
+                    }
+                );
+            });
         }
+        
+        btnText.innerText = "Сакталууда...";
         
         await addDoc(collection(db, cat), {
             artist: artist,
@@ -138,7 +155,7 @@ async function loadAllItems() {
     }
 }
 
-// --- ТОЛУК ӨЧҮРҮҮ (ТЕКСТ + СҮРӨТ) ---
+// --- ТОЛУК ӨЧҮРҮҮ ---
 let delCat = '', delId = '';
 window.askDelete = (c, i) => { delCat = c; delId = i; document.getElementById('deleteModal').style.display = 'flex'; };
 window.closeDelModal = () => document.getElementById('deleteModal').style.display = 'none';
@@ -151,7 +168,6 @@ document.getElementById('confirmDeleteBtn').onclick = async () => {
 
         if (targetDoc) {
             const data = targetDoc.data();
-            // Эгер сүрөтү болсо Storage'ден өчүрөбүз
             if (data.cover && data.cover.includes("firebasestorage")) {
                 try {
                     const imgRef = ref(storage, data.cover);
@@ -161,7 +177,8 @@ document.getElementById('confirmDeleteBtn').onclick = async () => {
         }
 
         await deleteDoc(docRef);
-        document.getElementById(delId).remove();
+        const el = document.getElementById(delId);
+        if(el) el.remove();
         closeDelModal();
         showMsg("Баары өчүрүлдү!");
     } catch (err) { showMsg("Ката: " + err.message, true); }
@@ -187,6 +204,7 @@ window.tm = (e) => {
     if (cx < 0 && cx > -100) activeEl.style.transform = `translateX(${cx}px)`;
 }
 window.te = () => {
+    if(!activeEl) return;
     activeEl.style.transition = 'transform 0.4s ease';
     activeEl.style.transform = (cx < -50) ? 'translateX(-85px)' : 'translateX(0px)';
 }
