@@ -49,11 +49,32 @@
         <h2 style="text-align: center; margin-bottom: 20px;">MusicKG Admin</h2>
         <input type="email" id="email-in" placeholder="Email">
         <input type="password" id="pass-in" placeholder="Пароль">
+        
+        <div style="display: flex; align-items: center; margin-bottom: 15px; color: #ccc; font-size: 14px;">
+            <input type="checkbox" id="remember-me" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+            <label for="remember-me" style="cursor: pointer;">Мени эстеп кал</label>
+        </div>
+
         <button class="btn-send" onclick="login()">
             <span class="btn-text">Кирүү</span>
         </button>
+
+        <p style="text-align: center; margin-top: 15px;">
+            <a href="#" onclick="forgotPassword()" style="color: #00c853; font-size: 13px; text-decoration: none;">Паролду унутуп калдыңызбы?</a>
+        </p>
     </div>
 </div>
+
+<div id="resetPasswordModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3 style="text-align: center; margin-bottom: 20px;">Жаңы пароль орнотуу</h3>
+        <input type="password" id="new-password" placeholder="Жаңы пароль">
+        <button class="btn-send" onclick="updatePassword()">
+            <span class="btn-text">Паролду жаңыртуу</span>
+        </button>
+    </div>
+</div>
+
 
 <div id="admin-main" style="display:none;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
