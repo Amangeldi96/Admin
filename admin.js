@@ -237,4 +237,4 @@ function showMsg(txt, err = false) {
     b.style.background = err ? "#ff4444" : "#00c853";
     b.classList.add('show'); 
     setTimeout(() => b.classList.remove('show'), 3000);
-            }
+}
