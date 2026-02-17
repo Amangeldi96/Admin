@@ -6,10 +6,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- ГЛОБАЛДЫК ӨЗГӨРМӨЛӨР ---
 let isLoaded = false;
+const ALL_CATEGORIES = ['video_clips', 'shorts', 'top_hits', 'hits', 'new_hits', 'upcoming'];
 
-// --- 1. АВТОРИЗАЦИЯ ЖАНА ЭСТЕП КАЛУУ ---
+// --- 1. АВТОРИЗАЦИЯ ---
 
-// Кирүү функциясы
 window.login = async () => {
     const e = document.getElementById('email-in').value;
     const p = document.getElementById('pass-in').value;
@@ -30,23 +30,18 @@ window.login = async () => {
     }
 };
 
-// Чыгуу функциясы (Эми точно иштейт)
 window.logout = async () => {
     try {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
 
-        // Паролду тазалоо
         document.getElementById('pass-in').value = "";
-        
-        // Эгер "эстеп кал" жок болсо почтаны да тазалоо
         if (localStorage.getItem('rememberMe') !== 'true') {
             document.getElementById('email-in').value = "";
         }
 
-        // UI'дагы тизмелерди тазалоо
-        const cats = ['shorts', 'top_hits', 'hits', 'new_hits', 'upcoming'];
-        cats.forEach(c => {
+        // UI тазалоо
+        ALL_CATEGORIES.forEach(c => {
             const list = document.getElementById('list-' + c);
             if (list) list.innerHTML = "";
         });
@@ -58,7 +53,6 @@ window.logout = async () => {
     }
 };
 
-// Барак ачылганда эстеп калгандарды толтуруу
 window.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('rememberMe') === 'true') {
         const savedEmail = localStorage.getItem('rememberedEmail');
@@ -68,39 +62,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- 2. ПАРОЛДУ УНУТУП КАЛУУ ЖАНА ЖАҢЫРТУУ ---
-window.forgotPassword = async () => {
-    const email = document.getElementById('email-in').value;
-    if (!email) return showMsg("Алгач Email дарегиңизди жазыңыз!", true);
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.href, 
-    });
-
-    if (error) showMsg("Ката: " + error.message, true);
-    else showMsg("Паролду жаңыртуу шилтемеси почтаңызга жөнөтүлдү!");
-};
-
-window.updatePassword = async () => {
-    const newPass = document.getElementById('new-password').value;
-    if (newPass.length < 6) return showMsg("Пароль кеминде 6 тамга болушу керек!", true);
-
-    const { error } = await supabase.auth.updateUser({ password: newPass });
-
-    if (error) {
-        showMsg("Ката: " + error.message, true);
-    } else {
-        showMsg("Пароль ийгиликтүү алмашты!");
-        document.getElementById('resetPasswordModal').style.display = 'none';
-    }
-};
-
-// --- 3. СЕРВЕРДЕН КАБАРЛАРДЫ КҮТҮҮ ---
+// --- 2. СЕРВЕРДЕН КАБАРЛАРДЫ КҮТҮҮ ---
 supabase.auth.onAuthStateChange(async (event, session) => {
-    if (event === "PASSWORD_RECOVERY") {
-        document.getElementById('resetPasswordModal').style.display = 'flex';
-    }
-
     if (session) {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('admin-main').style.display = 'block';
@@ -112,7 +75,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     }
 });
 
-// --- 4. СВАЙП ЛОГИКАСЫ ---
+// --- 3. СВАЙП ЛОГИКАСЫ ---
 let startX = 0, lastX = 0, currentItem = null;
 window.ts = (e) => { startX = e.touches[0].clientX; currentItem = e.currentTarget; currentItem.style.transition = "none"; };
 window.tm = (e) => { 
@@ -128,30 +91,45 @@ window.te = () => {
     lastX = 0; 
 };
 
-// --- 5. МААЛЫМАТТАРДЫ ЖҮКТӨӨ ---
+// --- 4. МААЛЫМАТТАРДЫ ЖҮКТӨӨ ---
 async function loadAllItems() {
-    const cats = ['shorts', 'top_hits', 'hits', 'new_hits', 'upcoming'];
-    for (let c of cats) {
+    for (let c of ALL_CATEGORIES) {
         const list = document.getElementById('list-' + c);
         if (!list) continue;
+        list.innerHTML = `<div style="padding:10px; color:#666; font-size:12px;">Жүктөлүүдө...</div>`; 
+        
+        const { data: items, error } = await supabase.from(c).select('*').order('created_at', { ascending: false });
+        
+        if (error) {
+            console.error(`Ката (${c}):`, error.message);
+            continue;
+        }
+
         list.innerHTML = ""; 
-        const { data: items } = await supabase.from(c).select('*').order('created_at', { ascending: false });
         if (items) items.forEach(data => {
-            let img = (data.cover && c !== 'shorts') ? `<img src="${data.cover}" style="width:45px; height:45px; border-radius:10px; object-fit:cover; margin-right:15px;">` : "";
+            // Видео жана Шортс үчүн сүрөт көрсөтпөйбүз (Ютубдан келет)
+            let hasImage = (data.cover && c !== 'shorts' && c !== 'video_clips' && c !== 'hits' && c !== 'new_hits');
+            let img = hasImage ? `<img src="${data.cover}" style="width:45px; height:45px; border-radius:10px; object-fit:cover; margin-right:15px;">` : "";
+            
+            // Тизмедеги текстти форматтоо
             const title = (c === 'shorts') ? data.artist : `${data.artist} - ${data.name}`;
+            
             list.insertAdjacentHTML('beforeend', `
                 <div class="swipe-container" id="cont-${data.id}">
                     <div class="delete-btn" onclick="askDelete('${c}', '${data.id}')">✕</div>
                     <div class="item" ontouchstart="ts(event)" ontouchmove="tm(event)" ontouchend="te(event)">
-                        ${img}<div style="flex:1; overflow:hidden;"><b style="display:block; font-size:14px;">${title}</b>
-                        <small style="color:#666; font-size:11px;">${data.src}</small></div>
+                        ${img}
+                        <div style="flex:1; overflow:hidden;">
+                            <b style="display:block; font-size:14px; color:#fff;">${title}</b>
+                            <small style="color:#666; font-size:11px; white-space:nowrap;">${data.src}</small>
+                        </div>
                     </div>
                 </div>`);
         });
     }
 }
 
-// --- 6. КОШУУ (ЧЕКТӨӨЛӨР МЕНЕН) ---
+// --- 5. КОШУУ ---
 window.confirmUpload = async () => {
     const cat = document.getElementById('mainCategory').value;
     const artist = document.getElementById('artistName').value;
@@ -159,69 +137,104 @@ window.confirmUpload = async () => {
     const url = document.getElementById('itemUrl').value;
     const file = document.getElementById('imgFile').files[0];
 
-    if (!artist || !url) return showMsg("Толук толтуруңуз!", true);
+    // Валидация
+    if (!artist || !url) return showMsg("Артист жана Шилтеме талап кылынат!", true);
+    if ((cat !== 'shorts') && !name) return showMsg("Аталышын жазыңыз!", true);
+
     const btn = document.getElementById('uploadBtn');
     const prg = document.getElementById('upload-progress');
     const prgCont = document.getElementById('upload-progress-container');
+    
     btn.disabled = true;
+    const originalBtnText = btn.innerHTML;
+    btn.innerHTML = "Жүктөлүүдө...";
 
     try {
+        // Чектөөлөр (Шортс жана Топ 5 үчүн)
         if (cat === 'shorts' || cat === 'top_hits') {
             const { count } = await supabase.from(cat).select('*', { count: 'exact', head: true });
-            if (cat === 'shorts' && count >= 4) throw new Error("Шортс бөлүмүнө 4 гана ыр бабат!");
+            if (cat === 'shorts' && count >= 4) throw new Error("Шортс бөлүмүнө 4 гана видео бабат!");
             if (cat === 'top_hits' && count >= 5) throw new Error("Топ-5 бөлүмүнө 5 гана ыр бабат!");
         }
+
         if (prgCont) prgCont.style.display = 'block'; 
-        if (prg) prg.style.width = '30%';
+        if (prg) prg.style.width = '20%';
 
         let coverUrl = "";
+        // Сүрөт жүктөй турган категориялар
         if (file && (cat === 'top_hits' || cat === 'upcoming')) {
             const fileName = `covers/${Date.now()}_${file.name}`;
-            await supabase.storage.from('Albums').upload(fileName, file);
+            const { error: uploadError } = await supabase.storage.from('Albums').upload(fileName, file);
+            if (uploadError) throw uploadError;
             coverUrl = supabase.storage.from('Albums').getPublicUrl(fileName).data.publicUrl;
         }
         
-        if (prg) prg.style.width = '70%';
-        await supabase.from(cat).insert([{ artist, name: (cat === 'shorts' ? "" : name), src: url, cover: coverUrl }]);
+        if (prg) prg.style.width = '60%';
+
+        // Базага кошуу
+        const insertData = {
+            artist: artist,
+            name: (cat === 'shorts' ? "" : name),
+            src: url
+        };
+        if (coverUrl) insertData.cover = coverUrl;
+
+        const { error: insertError } = await supabase.from(cat).insert([insertData]);
+        if (insertError) throw insertError;
+
         if (prg) prg.style.width = '100%';
         showMsg("Ийгиликтүү кошулду!");
+        
         setTimeout(() => location.reload(), 800);
     } catch (err) {
-        showMsg(err.message, true); btn.disabled = false; 
+        showMsg(err.message, true); 
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
         if (prgCont) prgCont.style.display = 'none';
     }
 };
 
-// --- 7. ӨЧҮРҮҮ ---
+// --- 6. ӨЧҮРҮҮ ---
 let delCat = '', delId = '';
 window.askDelete = (c, i) => { delCat = c; delId = i; document.getElementById('deleteModal').style.display = 'flex'; };
 window.closeDelModal = () => document.getElementById('deleteModal').style.display = 'none';
 
 document.getElementById('confirmDeleteBtn').onclick = async () => {
     try {
+        // Эгер сүрөтү болсо, аны Storage'ден кошо өчүрүү
         const { data: item } = await supabase.from(delCat).select('cover').eq('id', delId).single();
         if (item?.cover) {
             const path = item.cover.split('/public/Albums/')[1];
             if (path) await supabase.storage.from('Albums').remove([path]);
         }
+        
         await supabase.from(delCat).delete().eq('id', delId);
-        document.getElementById('cont-' + delId).remove();
+        const el = document.getElementById('cont-' + delId);
+        if (el) el.remove();
         showMsg("Өчүрүлдү!");
-    } catch (err) { showMsg(err.message, true); }
-    finally { closeDelModal(); }
+    } catch (err) { 
+        showMsg("Өчүрүүдө ката: " + err.message, true); 
+    } finally { 
+        closeDelModal(); 
+    }
 };
 
 // --- ЖӨМӨКЧҮЛӨР ---
 window.openUpload = () => { document.getElementById('uploadModal').style.display = 'flex'; };
-window.closeUpload = () => { document.getElementById('uploadModal').style.display = 'none'; };
-window.updateFileName = () => {
-    const f = document.getElementById('imgFile').files[0];
-    const label = document.getElementById('l-imgFile');
-    if (f && label) label.innerHTML = `Тандалды: <span>${f.name.substring(0, 15)}...</span>`;
+window.closeUpload = () => { 
+    document.getElementById('uploadModal').style.display = 'none';
+    // Форманы тазалоо
+    document.getElementById('artistName').value = "";
+    document.getElementById('itemName').value = "";
+    document.getElementById('itemUrl').value = "";
+    document.getElementById('imgFile').value = "";
 };
+
 function showMsg(txt, err = false) {
     const b = document.getElementById('toast-box');
     if (!b) return;
-    b.innerText = txt; b.style.background = err ? "#ff4444" : "#00c853";
-    b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 3000);
-}
+    b.innerText = txt; 
+    b.style.background = err ? "#ff4444" : "#00c853";
+    b.classList.add('show'); 
+    setTimeout(() => b.classList.remove('show'), 3000);
+            }
