@@ -19,7 +19,7 @@
             color: #ccc;
         }
         .custom-file-upload span {
-            color: var(--primary);
+            color: #00c853;
             font-weight: bold;
         }
         #upload-progress-container {
@@ -38,6 +38,9 @@
         }
         /* Жашыруу үчүн класс */
         .hidden-field { display: none !important; }
+        
+        /* Видео клиптер үчүн атайын түс */
+        .header-video { background: linear-gradient(90deg, #FF0000, #cc0000) !important; }
     </style>
 </head>
 <body>
@@ -58,23 +61,8 @@
         <button class="btn-send" onclick="login()">
             <span class="btn-text">Кирүү</span>
         </button>
-
-        <p style="text-align: center; margin-top: 15px;">
-            <a href="#" onclick="forgotPassword()" style="color: #00c853; font-size: 13px; text-decoration: none;">Паролду унутуп калдыңызбы?</a>
-        </p>
     </div>
 </div>
-
-<div id="resetPasswordModal" class="modal" style="display: none;">
-    <div class="modal-content">
-        <h3 style="text-align: center; margin-bottom: 20px;">Жаңы пароль орнотуу</h3>
-        <input type="password" id="new-password" placeholder="Жаңы пароль">
-        <button class="btn-send" onclick="updatePassword()">
-            <span class="btn-text">Паролду жаңыртуу</span>
-        </button>
-    </div>
-</div>
-
 
 <div id="admin-main" style="display:none;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -83,19 +71,22 @@
     </div>
 
     <div id="lists-container">
+        <div class="category-header header-video"><h3>Видео клиптер</h3></div>
+        <div id="list-video_clips" class="list-group"></div>
+
         <div class="category-header hei0"><h3>Шортс</h3></div>
         <div id="list-shorts" class="list-group"></div>
 
-        <div class="category-header hei1"><h3>Топ 5</h3></div>
+        <div class="category-header hei1"><h3>Топ 5 жаңы ырлар</h3></div>
         <div id="list-top_hits" class="list-group"></div>
 
-        <div class="category-header hei2"><h3>Хиттер</h3></div>
+        <div class="category-header hei2"><h3>Хит ырлар</h3></div>
         <div id="list-hits" class="list-group"></div>
 
-        <div class="category-header hei3"><h3>Жаңы</h3></div>
+        <div class="category-header hei3"><h3>Жаңы хиттер</h3></div>
         <div id="list-new_hits" class="list-group"></div>
 
-        <div class="category-header hei4"><h3>Күтүлүүдө</h3></div>
+        <div class="category-header hei4"><h3>Жакында чыгуучу</h3></div>
         <div id="list-upcoming" class="list-group"></div>
     </div>
 
@@ -105,9 +96,10 @@
 <div id="uploadModal" class="modal">
     <div class="modal-content">
         <div class="close-x" onclick="closeUpload()">✕</div>
-        <h3 style="text-align: center; margin-bottom: 20px;">Жаңы ыр кошуу</h3>
+        <h3 style="text-align: center; margin-bottom: 20px;">Маалымат кошуу</h3>
         
         <select id="mainCategory" onchange="adjustForm()">
+            <option value="video_clips">Видео клиптер</option>
             <option value="shorts">Шортс (Видео)</option>
             <option value="top_hits">Топ 5 жаңы ырлар</option>
             <option value="hits">Хит ырлар</option>
@@ -116,12 +108,12 @@
         </select>
 
         <div id="divArtist"><input type="text" id="artistName" placeholder="Артисттин аты"></div>
-        <div id="divName"><input type="text" id="itemName" placeholder="Аталышы (Ырдын аты)"></div>
+        <div id="divName"><input type="text" id="itemName" placeholder="Ырдын аты"></div>
         <div id="divUrl"><input type="text" id="itemUrl" placeholder="YouTube шилтемеси"></div>
         
         <div id="divFile">
             <label for="imgFile" class="custom-file-upload" id="l-imgFile">
-                Мукаба тандаңыз (Галерея) <span>+</span>
+                Мукаба тандаңыз (Сүрөт) <span>+</span>
             </label>
             <input type="file" id="imgFile" accept="image/*" onchange="updateFileName()" style="display:none">
         </div>
@@ -150,36 +142,58 @@
 <script type="module" src="admin.js"></script>
 
 <script>
-    // Бул функцияны admin.js файлыңызга деле кошсоңуз болот, же ушул жерде калсын:
+    // Форманы категорияга жараша өзгөртүүчү логика
     window.adjustForm = function() {
         const cat = document.getElementById('mainCategory').value;
         const divName = document.getElementById('divName');
         const divFile = document.getElementById('divFile');
+        const divArtist = document.getElementById('divArtist');
+        const divUrl = document.getElementById('divUrl');
 
         // Баарын ачып алабыз
+        divArtist.classList.remove('hidden-field');
         divName.classList.remove('hidden-field');
+        divUrl.classList.remove('hidden-field');
         divFile.classList.remove('hidden-field');
 
-        if (cat === 'shorts') {
-            // Шортс: Артист + Ютуб шилтеме (Аты жана Сүрөтү жок)
+        if (cat === 'video_clips') {
+            // ВИДЕО КЛИП: Артист + Ырдын аты + Шилтеме (Сүрөт кереги жок)
+            divFile.classList.add('hidden-field');
+        } 
+        else if (cat === 'shorts') {
+            // ШОРТС: Артист + Шилтеме (Аты жана Сүрөт кереги жок)
             divName.classList.add('hidden-field');
             divFile.classList.add('hidden-field');
         } 
-        else if (cat === 'new_hits' || cat === 'hits') {
-            // Жаңы/Хиттер: Артист + Аты + Ютуб шилтеме (Сүрөтү жок)
+        else if (cat === 'hits' || cat === 'new_hits') {
+            // ХИТТЕР: Артист + Аты + Шилтеме (Сүрөт кереги жок)
             divFile.classList.add('hidden-field');
         }
-        // Топ 5 жана Күтүлүүдө: Баары көрүнөт
+        // Топ 5 жана Күтүлүүдө үчүн баары (сүрөтү менен) ачык калат
     }
-    // Модал ачылганда автоматтык түрдө иштеши үчүн
+
+    // Модал ачылганда форманы автоматтык түрдө текшерүү
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
-            if (mutation.target.style.display === 'flex') {
+            if (mutation.target.style.display === 'flex' || mutation.target.classList.contains('active')) {
                 adjustForm();
             }
         });
     });
-    observer.observe(document.getElementById('uploadModal'), { attributes: true, attributeFilter: ['style'] });
+    
+    const uploadModal = document.getElementById('uploadModal');
+    if (uploadModal) {
+        observer.observe(uploadModal, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+
+    // Файл тандалганда атын көрсөтүү
+    window.updateFileName = function() {
+        const fileInput = document.getElementById('imgFile');
+        const label = document.getElementById('l-imgFile');
+        if (fileInput.files.length > 0) {
+            label.innerHTML = `Тандалды: <span>${fileInput.files[0].name}</span>`;
+        }
+    }
 </script>
 
 </body>
