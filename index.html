@@ -39,8 +39,11 @@
         /* Жашыруу үчүн класс */
         .hidden-field { display: none !important; }
         
-        /* Видео клиптер үчүн атайын түс */
-        .header-video { background: linear-gradient(90deg, #FF0000, #cc0000) !important; }
+        /* Сиз сурагандай, башкалар менен бирдей стиль (болгону сол жагы кызыл) */
+        .header-video { 
+            border-left: 4px solid #FF0000 !important; 
+            background: rgba(255, 0, 0, 0.05) !important;
+        }
     </style>
 </head>
 <body>
@@ -113,7 +116,7 @@
         
         <div id="divFile">
             <label for="imgFile" class="custom-file-upload" id="l-imgFile">
-                Мукаба тандаңыз (Сүрөт) <span>+</span>
+                Мукаба тандаңыз <span>+</span>
             </label>
             <input type="file" id="imgFile" accept="image/*" onchange="updateFileName()" style="display:none">
         </div>
@@ -123,7 +126,7 @@
         </div>
 
         <button class="btn-send" id="uploadBtn" onclick="confirmUpload()">
-            <span class="btn-text" id="upload-btn-text">Сайтка чыгаруу</span>
+            <span class="btn-text">Сайтка чыгаруу</span>
         </button>
     </div>
 </div>
@@ -142,7 +145,6 @@
 <script type="module" src="admin.js"></script>
 
 <script>
-    // Форманы категорияга жараша өзгөртүүчү логика
     window.adjustForm = function() {
         const cat = document.getElementById('mainCategory').value;
         const divName = document.getElementById('divName');
@@ -150,49 +152,39 @@
         const divArtist = document.getElementById('divArtist');
         const divUrl = document.getElementById('divUrl');
 
-        // Баарын ачып алабыз
+        // Баарын баштапкы абалга келтирүү
         divArtist.classList.remove('hidden-field');
         divName.classList.remove('hidden-field');
         divUrl.classList.remove('hidden-field');
         divFile.classList.remove('hidden-field');
 
         if (cat === 'video_clips') {
-            // ВИДЕО КЛИП: Артист + Ырдын аты + Шилтеме (Сүрөт кереги жок)
+            // ВИДЕО КЛИП: Артист + Аты + Шилтеме (Сүрөт жашырылат)
             divFile.classList.add('hidden-field');
         } 
         else if (cat === 'shorts') {
-            // ШОРТС: Артист + Шилтеме (Аты жана Сүрөт кереги жок)
+            // ШОРТС: Артист + Шилтеме (Аты жана Сүрөт жашырылат)
             divName.classList.add('hidden-field');
             divFile.classList.add('hidden-field');
         } 
         else if (cat === 'hits' || cat === 'new_hits') {
-            // ХИТТЕР: Артист + Аты + Шилтеме (Сүрөт кереги жок)
+            // ХИТТЕР: Артист + Аты + Шилтеме (Сүрөт жашырылат)
             divFile.classList.add('hidden-field');
         }
-        // Топ 5 жана Күтүлүүдө үчүн баары (сүрөтү менен) ачык калат
     }
 
-    // Модал ачылганда форманы автоматтык түрдө текшерүү
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.target.style.display === 'flex' || mutation.target.classList.contains('active')) {
-                adjustForm();
-            }
+    // Модал ачылганда автоматтык текшерүү
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((m) => {
+            if (m.target.style.display === 'flex') adjustForm();
         });
     });
-    
-    const uploadModal = document.getElementById('uploadModal');
-    if (uploadModal) {
-        observer.observe(uploadModal, { attributes: true, attributeFilter: ['style', 'class'] });
-    }
+    observer.observe(document.getElementById('uploadModal'), { attributes: true, attributeFilter: ['style'] });
 
-    // Файл тандалганда атын көрсөтүү
     window.updateFileName = function() {
-        const fileInput = document.getElementById('imgFile');
+        const f = document.getElementById('imgFile').files[0];
         const label = document.getElementById('l-imgFile');
-        if (fileInput.files.length > 0) {
-            label.innerHTML = `Тандалды: <span>${fileInput.files[0].name}</span>`;
-        }
+        if (f) label.innerHTML = `Тандалды: <span>${f.name.substring(0, 10)}...</span>`;
     }
 </script>
 
